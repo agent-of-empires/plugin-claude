@@ -6,8 +6,10 @@
 //   acp                answer initialize and session/new, then send three updates
 //   flood <bytes> <progress-file>  write ~65 KB lines up to <bytes>, recording progress, and read stdin
 //   close-stdin        close stdin, print ready with the pid, then stay alive
+//   grandchild <pid-file>  write an unterminated frame and exit 0 while a subprocess keeps stdout open
 //   term               print ready, then exit 5 on SIGTERM after printing the count
 //   ignore-term        print ready, then ignore SIGTERM forever
+import { spawn } from "node:child_process";
 import { closeSync, readFileSync, writeFileSync } from "node:fs";
 
 const [mode, file, code] = process.argv.slice(2);
@@ -67,6 +69,12 @@ if (mode === "echo") {
   };
   process.stdin.resume();
   step();
+} else if (mode === "grandchild") {
+  // The subprocess inherits stdout and expires on its own after 10 s.
+  const sub = spawn(process.execPath, ["-e", "setTimeout(() => {}, 10000)"], { stdio: ["ignore", "inherit", "ignore"] });
+  writeFileSync(file, String(sub.pid));
+  process.stdin.resume();
+  process.stdout.write('{"unterminated":', () => process.exit(0));
 } else if (mode === "close-stdin") {
   closeSync(0);
   process.stdout.write(JSON.stringify({ ready: true, pid: process.pid }) + "\n");

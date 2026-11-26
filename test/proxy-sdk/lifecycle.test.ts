@@ -180,4 +180,18 @@ describe("child lifecycle", () => {
       }
     });
   });
+
+  it("rejects as abandoned when the deadline force-closes a stdout a subprocess holds open", async () => {
+    const pidFile = join(tempDir(), "pid");
+    const h = start(["grandchild", pidFile], { killGraceMs: 200 });
+    try {
+      await expect(h.done).rejects.toThrow(/output abandoned after killGraceMs/);
+    } finally {
+      try {
+        process.kill(Number(readFileSync(pidFile, "utf8")), "SIGKILL");
+      } catch {
+        // already gone
+      }
+    }
+  });
 });

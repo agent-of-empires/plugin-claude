@@ -141,6 +141,7 @@ export class Proxy {
         return Math.max(0, deadline - Date.now());
       };
       let forceTimer: ReturnType<typeof setTimeout> | null = null;
+      let forced = false;
       let epipeTimer: ReturnType<typeof setTimeout> | null = null;
       // Resolves true when queued output had to be dropped.
       const cleanup = async (): Promise<boolean> => {
@@ -169,7 +170,7 @@ export class Proxy {
             await bounded(Promise.allSettled([outWriter.flush(), childWriter.flush()]), remaining());
           } finally {
             // Whatever is still queued is dropped; it must not touch the streams or the trace.
-            dropped = outWriter.pending > 0;
+            dropped = forced || outWriter.pending > 0;
             outWriter.abandon();
             childWriter.abandon();
             child.stdin.destroy();
@@ -289,6 +290,9 @@ export class Proxy {
           return;
         }
         forceTimer = setTimeout(() => {
+          // Destroying the pipes loses whatever the splitter or the pipe still holds,
+          // so unless stdout had already ended this counts as abandoned output.
+          forced = !child.stdout.readableEnded;
           child.stdout.destroy();
           child.stdin.destroy();
           shutdown(exitCode(code, signal));
