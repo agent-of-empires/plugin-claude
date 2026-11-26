@@ -26,7 +26,7 @@ export class FrameWriter {
     return result;
   }
 
-  /** Resolves once every queued write has been handed to the stream. */
+  /** Resolves once every queued write has completed. */
   flush(): Promise<void> {
     return this.tail;
   }
@@ -43,31 +43,14 @@ export class FrameWriter {
     this.stream.end();
   }
 
-  private async send(buf: Buffer): Promise<void> {
+  // Resolves when the write callback fires, which also reports async errors.
+  private send(buf: Buffer): Promise<void> {
     if (this.error) {
-      throw this.error;
+      return Promise.reject(this.error);
     }
     this.onWrite?.(buf);
-    if (this.stream.write(buf)) {
-      return;
-    }
-    await new Promise<void>((resolve, reject) => {
-      const stream = this.stream;
-      const done = (err?: Error) => {
-        stream.off("drain", onDrain);
-        stream.off("error", done);
-        stream.off("close", onClose);
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      };
-      const onDrain = () => done();
-      const onClose = () => done(new Error("stream closed"));
-      stream.once("drain", onDrain);
-      stream.once("error", done);
-      stream.once("close", onClose);
+    return new Promise<void>((resolve, reject) => {
+      this.stream.write(buf, (err) => (err ? reject(err) : resolve()));
     });
   }
 }
