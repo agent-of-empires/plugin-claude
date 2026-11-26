@@ -6,6 +6,7 @@ import type { Writable } from "node:stream";
 export class FrameWriter {
   private tail: Promise<void> = Promise.resolve();
   private closed = false;
+  private abandoned = false;
   private error: Error | null = null;
   private pendingBytes = 0;
 
@@ -42,6 +43,14 @@ export class FrameWriter {
     return this.tail;
   }
 
+  /**
+   * Discards every queued frame that has not reached the stream yet, and any
+   * later write. A write already handed to the stream still completes.
+   */
+  abandon(): void {
+    this.abandoned = true;
+  }
+
   /** Flushes, then refuses further writes. */
   async close(): Promise<void> {
     this.closed = true;
@@ -56,6 +65,9 @@ export class FrameWriter {
 
   // Resolves when the write callback fires, which also reports async errors.
   private send(buf: Buffer): Promise<void> {
+    if (this.abandoned) {
+      return Promise.resolve();
+    }
     if (this.error) {
       return Promise.reject(this.error);
     }

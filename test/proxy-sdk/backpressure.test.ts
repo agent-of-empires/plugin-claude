@@ -112,5 +112,32 @@ describe("backpressure", () => {
       expect(Date.now() - started).toBeLessThan(3000);
       expect(openFds()).toBe(before);
     }, 10000);
+
+    it("drops queued output after the grace period, even when the sink unblocks later", async () => {
+      const file = join(tempDir(), "out.ndjson");
+      writeFileSync(file, Array.from({ length: 5 }, () => '{"jsonrpc":"2.0","method":"x"}\n').join(""));
+      const input = new PassThrough();
+      const chunks: Buffer[] = [];
+      const held: (() => void)[] = [];
+      const proxy = createProxy({
+        pluginId: "p",
+        command: process.execPath,
+        args: [ADAPTER, "emit", file, "0"],
+        killGraceMs: 100,
+        input,
+        output: new Writable({
+          write(chunk: Buffer, _enc, cb) {
+            chunks.push(chunk);
+            held.push(() => cb());
+          },
+        }),
+      });
+      input.end();
+      expect(await proxy.run()).toBe(0);
+      expect(chunks).toHaveLength(1);
+      held.splice(0).forEach((cb) => cb());
+      await new Promise((r) => setTimeout(r, 100));
+      expect(chunks).toHaveLength(1);
+    }, 10000);
   });
 });

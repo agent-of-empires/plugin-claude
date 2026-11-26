@@ -148,6 +148,9 @@ export class Proxy {
           try {
             await bounded(Promise.allSettled([outWriter.flush(), childWriter.flush()]), graceMs);
           } finally {
+            // Whatever is still queued is dropped; it must not touch the streams or the trace.
+            outWriter.abandon();
+            childWriter.abandon();
             trace?.close();
           }
         }
