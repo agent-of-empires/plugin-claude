@@ -141,6 +141,7 @@ export class Proxy {
         return Math.max(0, deadline - Date.now());
       };
       let forceTimer: ReturnType<typeof setTimeout> | null = null;
+      let epipeTimer: ReturnType<typeof setTimeout> | null = null;
       // Resolves true when queued output had to be dropped.
       const cleanup = async (): Promise<boolean> => {
         let dropped = false;
@@ -153,6 +154,9 @@ export class Proxy {
           }
           if (forceTimer) {
             clearTimeout(forceTimer);
+          }
+          if (epipeTimer) {
+            clearTimeout(epipeTimer);
           }
           this.input.off("data", onClientData);
           this.input.off("end", onClientEnd);
@@ -206,9 +210,19 @@ export class Proxy {
 
       const toChild = (buf: Buffer) => {
         childWriter.write(buf).catch((err: NodeJS.ErrnoException) => {
-          // EPIPE: the adapter closed its stdin or died; its exit is handled on close.
-          if (!childExited && err.code !== "EPIPE") {
+          if (childExited || settled) {
+            return;
+          }
+          if (err.code !== "EPIPE") {
             this.fail(err);
+          } else if (!epipeTimer) {
+            // The adapter closed its stdin. If it is merely dying, its exit settles the
+            // run; if it stays alive, it can no longer be served, so fail.
+            epipeTimer = setTimeout(() => {
+              if (!childExited) {
+                this.fail(err);
+              }
+            }, graceMs);
           }
         });
       };

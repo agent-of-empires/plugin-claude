@@ -164,4 +164,20 @@ describe("child lifecycle", () => {
     expect(await h.done).toBe(3);
     await expect(h.proxy.run()).rejects.toThrow("run() already called");
   });
+
+  it("fails and kills an adapter that closes its stdin but stays alive", async () => {
+    const h = start(["close-stdin"], { killGraceMs: 150 });
+    await until(() => h.lines().length === 1);
+    const { pid } = JSON.parse(h.lines()[0]) as { pid: number };
+    h.input.write('{"jsonrpc":"2.0","id":1,"method":"x"}\n');
+    await expect(h.done).rejects.toThrow(/EPIPE/);
+    await until(() => {
+      try {
+        process.kill(pid, 0);
+        return false;
+      } catch {
+        return true;
+      }
+    });
+  });
 });
