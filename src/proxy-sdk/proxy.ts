@@ -140,13 +140,19 @@ export class Proxy {
         deadline ||= Date.now() + graceMs;
         return Math.max(0, deadline - Date.now());
       };
-      const cleanup = async () => {
+      let forceTimer: ReturnType<typeof setTimeout> | null = null;
+      // Resolves true when queued output had to be dropped.
+      const cleanup = async (): Promise<boolean> => {
+        let dropped = false;
         try {
           for (const [sig, handler] of signalHandlers) {
             process.off(sig, handler);
           }
           if (killTimer) {
             clearTimeout(killTimer);
+          }
+          if (forceTimer) {
+            clearTimeout(forceTimer);
           }
           this.input.off("data", onClientData);
           this.input.off("end", onClientEnd);
@@ -159,12 +165,14 @@ export class Proxy {
             await bounded(Promise.allSettled([outWriter.flush(), childWriter.flush()]), remaining());
           } finally {
             // Whatever is still queued is dropped; it must not touch the streams or the trace.
+            dropped = outWriter.pending > 0;
             outWriter.abandon();
             childWriter.abandon();
             child.stdin.destroy();
             trace?.close();
           }
         }
+        return dropped;
       };
       // The single end path: leases are disposed and run() always settles.
       const finish = async (outcome: { code: number } | { err: Error }) => {
@@ -173,7 +181,9 @@ export class Proxy {
         this.leases.dispose();
         let result = outcome;
         try {
-          await cleanup();
+          if ((await cleanup()) && "code" in result) {
+            result = { err: new Error(`output abandoned after killGraceMs (${graceMs} ms): the worker did not drain it`) };
+          }
         } catch (err) {
           if ("code" in result) {
             result = { err: err instanceof Error ? err : new Error(String(err)) };
@@ -237,21 +247,42 @@ export class Proxy {
         }
       });
 
-      child.on("error", (err) => this.fail(err));
-      child.on("close", (code, signal) => {
-        childExited = true;
-        if (settled) {
+      const exitCode = (code: number | null, signal: NodeJS.Signals | null) =>
+        code ?? 128 + (signal ? (constants.signals[signal] ?? 0) : 0);
+      let shuttingDown = false;
+      const shutdown = (code: number) => {
+        if (shuttingDown || settled) {
           return;
         }
+        shuttingDown = true;
         this.leases.dispose();
         this.closing = true;
         bounded(outWriter.close(), remaining())
           .then(() => {
             if (!settled) {
-              void finish({ code: code ?? 128 + (signal ? (constants.signals[signal] ?? 0) : 0) });
+              void finish({ code });
             }
           })
           .catch((err: Error) => this.fail(err));
+      };
+
+      child.on("error", (err) => this.fail(err));
+      // 'close' never fires while a paused stdout holds unread data, so the exit
+      // also starts the shutdown deadline. When it expires the pipes are destroyed.
+      child.on("exit", (code, signal) => {
+        childExited = true;
+        if (settled) {
+          return;
+        }
+        forceTimer = setTimeout(() => {
+          child.stdout.destroy();
+          child.stdin.destroy();
+          shutdown(exitCode(code, signal));
+        }, remaining());
+      });
+      child.on("close", (code, signal) => {
+        childExited = true;
+        shutdown(exitCode(code, signal));
       });
     });
   }

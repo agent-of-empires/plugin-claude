@@ -35,6 +35,7 @@ process.exitCode = await done; // the adapter's exit status, after output is flu
 - `proxy.emit(emission)` and the lease calls are valid only once `run()` has started successfully; before that, or if `run()` rejected at startup, they throw "proxy is not running". After the run ends, emits are ignored and `leases.acquire` throws. `emit` may be called from any async source. Relayed traffic is flow-controlled: a source is paused while more than 1 MiB is queued for its sink. Interpreter, `emit` and lease frames are not throttled, so their volume is the caller's to bound. Writes go through one FIFO queue of whole lines.
 - Lease frames carry an empty `agent_message_chunk` marked `ephemeral`, so core applies the lease and drops the frame.
 - `SIGINT`, `SIGTERM` and `SIGHUP` are forwarded to the adapter once, then SIGKILL after `killGraceMs` (default 5000). Client EOF ends the adapter's stdin.
+- `run()` resolves with the adapter's exit status after all output is flushed to the worker. `killGraceMs` bounds both the SIGKILL escalation and the shutdown flush: once the adapter has exited, the worker has `killGraceMs` to drain what is queued. If it stalls longer, the queued output is dropped, the adapter's pipes are destroyed and `run()` rejects with an "output abandoned after killGraceMs" error instead of resolving.
 - A trailing line without a delimiter is forwarded untouched and nothing is emitted after it.
 
 ## Trace

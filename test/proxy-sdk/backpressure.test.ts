@@ -94,10 +94,10 @@ describe("backpressure", () => {
     };
     const openFds = () => readdirSync("/dev/fd").length;
 
-    it("still lets run() resolve within the grace period", async () => {
+    it("makes run() reject as abandoned within the grace period when the adapter exits", async () => {
       const before = openFds();
       const started = Date.now();
-      expect(await stuckProxy({}).run()).toBe(0);
+      await expect(stuckProxy({}).run()).rejects.toThrow(/output abandoned after killGraceMs/);
       expect(Date.now() - started).toBeLessThan(3000);
       expect(openFds()).toBe(before);
     }, 10000);
@@ -133,7 +133,7 @@ describe("backpressure", () => {
         }),
       });
       input.end();
-      expect(await proxy.run()).toBe(0);
+      await expect(proxy.run()).rejects.toThrow(/output abandoned/);
       expect(chunks).toHaveLength(1);
       held.splice(0).forEach((cb) => cb());
       await new Promise((r) => setTimeout(r, 100));
@@ -182,9 +182,37 @@ describe("backpressure", () => {
       });
       const done = proxy.run();
       input.end();
-      await done;
+      await done.catch(() => undefined);
       // The adapter exits right after its only line; two grace periods would take 1000 ms.
       expect(Date.now() - firstWrite).toBeLessThan(800);
     }, 10000);
+
+    it("settles within the grace when the adapter exits with its output unread behind a paused relay", async () => {
+      const progress = join(tempDir(), "progress");
+      const trace = join(tempDir(), "trace");
+      const input = new PassThrough();
+      const warm = createProxy({ pluginId: "p", command: process.execPath, args: [ADAPTER, "eof"], input: new PassThrough(), output: new PassThrough() });
+      const warmDone = warm.run();
+      (warm as unknown as { input: PassThrough }).input.end();
+      await warmDone;
+      const before = openFds();
+      const proxy = createProxy({
+        pluginId: "p",
+        command: process.execPath,
+        // 18 lines of ~65 KB: more than the 1 MiB pause threshold, few enough for the adapter to finish writing.
+        args: [ADAPTER, "flood", String(18 * 65001), progress],
+        tracePath: trace,
+        killGraceMs: 300,
+        input,
+        output: new Writable({ write: () => undefined }),
+      });
+      const done = proxy.run();
+      input.end();
+      const started = Date.now();
+      await expect(done).rejects.toThrow(/output abandoned after killGraceMs/);
+      expect(Date.now() - started).toBeLessThan(2000);
+      await new Promise((r) => setTimeout(r, 100));
+      expect(openFds()).toBe(before);
+    }, 15000);
   });
 });
