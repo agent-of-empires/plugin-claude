@@ -14,6 +14,16 @@
           "jsonpath": "$.version"
         },
         {
+          "type": "json",
+          "path": "package-lock.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "package-lock.json",
+          "jsonpath": "$.packages[''].version"
+        },
+        {
           "type": "toml",
           "path": "aoe-plugin.toml",
           "jsonpath": "$.version"
