@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PassThrough, Writable } from "node:stream";
 import { describe, expect, it } from "vitest";
@@ -73,4 +73,44 @@ describe("backpressure", () => {
       expect(await done).toBe(137);
     });
   }, 30000);
+
+  describe("an output that never drains", () => {
+    const stuckProxy = (extra: { interpreters?: (() => never)[] }) => {
+      const file = join(tempDir(), "out.ndjson");
+      writeFileSync(file, '{"jsonrpc":"2.0","method":"x"}\n{"jsonrpc":"2.0","method":"y"}\n');
+      const input = new PassThrough();
+      const proxy = createProxy({
+        pluginId: "p",
+        command: process.execPath,
+        args: [ADAPTER, "emit", file, "0"],
+        tracePath: join(tempDir(), "trace"),
+        killGraceMs: 150,
+        input,
+        output: new Writable({ write: () => undefined }),
+        ...extra,
+      });
+      input.end();
+      return proxy;
+    };
+    const openFds = () => readdirSync("/dev/fd").length;
+
+    it("still lets run() resolve within the grace period", async () => {
+      const before = openFds();
+      const started = Date.now();
+      expect(await stuckProxy({}).run()).toBe(0);
+      expect(Date.now() - started).toBeLessThan(3000);
+      expect(openFds()).toBe(before);
+    }, 10000);
+
+    it("still lets run() reject within the grace period", async () => {
+      const before = openFds();
+      const started = Date.now();
+      const boom = () => {
+        throw new Error("boom");
+      };
+      await expect(stuckProxy({ interpreters: [boom] }).run()).rejects.toThrow(/boom/);
+      expect(Date.now() - started).toBeLessThan(3000);
+      expect(openFds()).toBe(before);
+    }, 10000);
+  });
 });

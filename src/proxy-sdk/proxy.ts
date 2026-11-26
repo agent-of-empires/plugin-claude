@@ -16,6 +16,18 @@ const SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
 const DEFAULT_KILL_GRACE_MS = 5000;
 const HIGH_WATER_BYTES = 1024 * 1024;
 
+/** Resolves when the promise settles or after `ms`, whichever comes first. */
+function bounded(promise: Promise<unknown>, ms: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    const done = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    promise.then(done, done);
+  });
+}
+
 /** Pauses a source while its sink holds too many queued bytes. */
 function applyBackpressure(source: Readable, sink: FrameWriter, alive: () => boolean): void {
   if (sink.pending <= HIGH_WATER_BYTES || source.isPaused()) {
@@ -113,8 +125,9 @@ export class Proxy {
         return [sig, handler] as const;
       });
 
-      // The trace closes only after both writers have drained, since their queued
-      // buffers still write to it.
+      // The trace closes after both writers drain, since their queued buffers still
+      // write to it. An undrainable output is given killGraceMs, then dropped.
+      const graceMs = this.opts.killGraceMs ?? DEFAULT_KILL_GRACE_MS;
       const cleanup = async () => {
         try {
           for (const [sig, handler] of signalHandlers) {
@@ -128,7 +141,7 @@ export class Proxy {
           this.input.pause();
         } finally {
           try {
-            await Promise.allSettled([outWriter.flush(), childWriter.flush()]);
+            await bounded(Promise.allSettled([outWriter.flush(), childWriter.flush()]), graceMs);
           } finally {
             trace?.close();
           }
@@ -211,8 +224,7 @@ export class Proxy {
           return;
         }
         this.leases.dispose();
-        outWriter
-          .close()
+        bounded(outWriter.close(), graceMs)
           .then(() => {
             if (!settled) {
               void finish({ code: code ?? 128 + (signal ? (constants.signals[signal] ?? 0) : 0) });

@@ -33,10 +33,21 @@ export function openTrace(path: string): Trace {
     }
     throw err;
   }
+  // After close, late writes are dropped: the fd numbers may already be reused.
+  let closed = false;
   return {
-    agent: (buf) => append(agentFd, buf),
-    client: (buf) => append(clientFd, buf),
+    agent: (buf) => {
+      if (!closed) {
+        append(agentFd, buf);
+      }
+    },
+    client: (buf) => {
+      if (!closed) {
+        append(clientFd, buf);
+      }
+    },
     close: () => {
+      closed = true;
       closeSync(agentFd);
       closeSync(clientFd);
     },
