@@ -156,4 +156,12 @@ describe("child lifecycle", () => {
     await h.done;
     expect(h.frames()[0]).toMatchObject({ result: { _meta: { aoe: { proxy: { plugin_id: "test-plugin" } } } } });
   });
+
+  it("is single-use: a second run() rejects, overlapping or after the first ended", async () => {
+    const h = start(["eof"]);
+    await expect(h.proxy.run()).rejects.toThrow("run() already called");
+    h.input.end();
+    expect(await h.done).toBe(3);
+    await expect(h.proxy.run()).rejects.toThrow("run() already called");
+  });
 });

@@ -60,6 +60,7 @@ export class Proxy {
   private readonly output;
   private adapterCount = 0;
   private sealed = false;
+  private started = false;
   private failure: Error | null = null;
   private outWriter: FrameWriter | null = null;
   private fail: (err: Error) => void = () => undefined;
@@ -79,8 +80,12 @@ export class Proxy {
     this.writeToWorker(frame);
   }
 
-  /** Runs until the adapter exits. Resolves with its exit status once all output is flushed. */
+  /** Runs until the adapter exits. A proxy is single-use: a second call rejects. Resolves with its exit status once all output is flushed. */
   run(): Promise<number> {
+    if (this.started) {
+      return Promise.reject(new Error("run() already called"));
+    }
+    this.started = true;
     return new Promise<number>((resolve, reject) => {
       const tracePath = this.opts.tracePath ?? process.env[TRACE_ENV];
       let trace: Trace | null = null;
