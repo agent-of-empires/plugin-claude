@@ -5,12 +5,15 @@ import type { Readable, Writable } from "node:stream";
 export type LeaseKind = "busy" | "task" | "compaction";
 export type LeaseVerb = "acquire" | "renew" | "release";
 
-export interface LeaseOp {
+interface LeaseBase {
   id: string;
   kind: LeaseKind;
-  op: LeaseVerb;
-  ttl_ms?: number;
 }
+
+/** acquire and renew need a ttl; release must omit it. */
+export type LeaseOp =
+  | (LeaseBase & { op: "acquire" | "renew"; ttl_ms: number })
+  | (LeaseBase & { op: "release"; ttl_ms?: undefined });
 
 /** The `_meta.aoe` primitives an interpreter may set. The SDK adds v, key and after_adapter_sequence. */
 export interface AoePrimitives {
