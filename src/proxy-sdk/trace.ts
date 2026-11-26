@@ -21,13 +21,16 @@ function append(fd: number, buf: Buffer): void {
 
 export function openTrace(path: string): Trace {
   const agentFd = openSync(path, "w", 0o600);
-  fchmodSync(agentFd, 0o600);
-  let clientFd: number;
+  let clientFd = -1;
   try {
+    fchmodSync(agentFd, 0o600);
     clientFd = openSync(`${path}.client`, "w", 0o600);
     fchmodSync(clientFd, 0o600);
   } catch (err) {
     closeSync(agentFd);
+    if (clientFd !== -1) {
+      closeSync(clientFd);
+    }
     throw err;
   }
   return {
