@@ -33,6 +33,11 @@ on:
 permissions:
   contents: read
 
+# Runs for the same tag queue, so a second run resolves the tag the first created.
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
+
 env:
   # `inputs` covers both entry points, so checkout and publishing agree.
   RELEASE_TAG: ${{ inputs.tag }}
