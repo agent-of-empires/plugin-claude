@@ -151,6 +151,9 @@ export class Proxy {
           this.input.off("data", onClientData);
           this.input.off("end", onClientEnd);
           this.input.pause();
+          // A relay paused by backpressure would otherwise keep its pipe open. (stdin is
+          // destroyed below, once its writer has drained.)
+          child.stdout.destroy();
         } finally {
           try {
             await bounded(Promise.allSettled([outWriter.flush(), childWriter.flush()]), remaining());
@@ -158,6 +161,7 @@ export class Proxy {
             // Whatever is still queued is dropped; it must not touch the streams or the trace.
             outWriter.abandon();
             childWriter.abandon();
+            child.stdin.destroy();
             trace?.close();
           }
         }
