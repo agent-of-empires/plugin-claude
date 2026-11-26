@@ -23,7 +23,7 @@ process.exitCode = await proxy.run(); // the adapter's exit status, after output
 
 - The SDK adds `v`, `key` (`<process-random>:<counter>`) and `after_adapter_sequence` (the adapter `session/update` count so far). Emissions must not set `key` or `after_adapter_sequence`.
 - Adapter frames are counted only if they are `session/update` without `after_adapter_sequence`. Proxy-emitted frames never take a number.
-- `proxy.emit(emission)` may be called from any async source. Writes go through one FIFO queue of whole lines.
+- `proxy.emit(emission)` may be called from any async source. Relayed traffic is flow-controlled: a source is paused while more than 1 MiB is queued for its sink. Interpreter, `emit` and lease frames are not throttled, so their volume is the caller's to bound. Writes go through one FIFO queue of whole lines.
 - Lease frames carry an empty `agent_message_chunk` marked `ephemeral`, so core applies the lease and drops the frame.
 - `SIGINT`, `SIGTERM` and `SIGHUP` are forwarded to the adapter once, then SIGKILL after `killGraceMs` (default 5000). Client EOF ends the adapter's stdin.
 - A trailing line without a delimiter is forwarded untouched and nothing is emitted after it.

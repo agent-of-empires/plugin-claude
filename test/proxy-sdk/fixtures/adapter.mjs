@@ -4,9 +4,10 @@
 //   eof                on stdin EOF write {"eof":true} and exit 3
 //   emit <file> <code> on stdin EOF write the file's bytes to stdout, exit <code>
 //   acp                answer initialize and session/new, then send three updates
+//   flood <bytes> <progress-file>  write ~65 KB lines up to <bytes>, recording progress, and read stdin
 //   term               print ready, then exit 5 on SIGTERM after printing the count
 //   ignore-term        print ready, then ignore SIGTERM forever
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 
 const [mode, file, code] = process.argv.slice(2);
 
@@ -48,6 +49,23 @@ if (mode === "echo") {
     }
   });
   process.stdin.on("end", () => process.stdout.end());
+} else if (mode === "flood") {
+  const total = Number(file);
+  const line = JSON.stringify({ jsonrpc: "2.0", method: "x", params: { pad: "a".repeat(65000) } }) + "\n";
+  let written = 0;
+  const step = () => {
+    if (written >= total) {
+      process.stdout.end();
+      return;
+    }
+    process.stdout.write(line, () => {
+      written += line.length;
+      writeFileSync(code, String(written));
+      step();
+    });
+  };
+  process.stdin.resume();
+  step();
 } else if (mode === "term") {
   let count = 0;
   process.on("SIGTERM", () => {

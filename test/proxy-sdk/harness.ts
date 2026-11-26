@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PassThrough } from "node:stream";
+import { expect } from "vitest";
 import { createProxy, type Proxy, type ProxyOptions } from "../../src/proxy-sdk/index";
 
 export const ADAPTER = fileURLToPath(new URL("./fixtures/adapter.mjs", import.meta.url));
@@ -65,5 +66,19 @@ export async function until(check: () => boolean): Promise<void> {
   }
   if (!check()) {
     throw new Error("condition not met in time");
+  }
+}
+
+/** Runs fn with the process's own SIGTERM listeners removed, so a synthetic emit reaches only the proxy. */
+export async function isolatingSigterm(fn: () => Promise<void>): Promise<void> {
+  const saved = process.listeners("SIGTERM");
+  process.removeAllListeners("SIGTERM");
+  try {
+    await fn();
+    expect(process.listenerCount("SIGTERM")).toBe(0);
+  } finally {
+    for (const l of saved) {
+      process.on("SIGTERM", l);
+    }
   }
 }

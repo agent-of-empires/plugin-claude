@@ -3,21 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { PassThrough } from "node:stream";
 import { createProxy } from "../../src/proxy-sdk/index";
-import { ADAPTER, start, tempDir, until } from "./harness";
-
-/** Runs fn with the process's own SIGTERM listeners removed, so a synthetic emit reaches only the proxy. */
-async function isolatingSigterm(fn: () => Promise<void>): Promise<void> {
-  const saved = process.listeners("SIGTERM");
-  process.removeAllListeners("SIGTERM");
-  try {
-    await fn();
-    expect(process.listenerCount("SIGTERM")).toBe(0);
-  } finally {
-    for (const l of saved) {
-      process.on("SIGTERM", l);
-    }
-  }
-}
+import { ADAPTER, start, isolatingSigterm, tempDir, until } from "./harness";
 
 describe("child lifecycle", () => {
   it("ends the child's stdin on client EOF and exits with its status", async () => {

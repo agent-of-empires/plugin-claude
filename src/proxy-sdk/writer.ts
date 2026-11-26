@@ -7,6 +7,7 @@ export class FrameWriter {
   private tail: Promise<void> = Promise.resolve();
   private closed = false;
   private error: Error | null = null;
+  private pendingBytes = 0;
 
   constructor(
     private readonly stream: Writable,
@@ -17,11 +18,21 @@ export class FrameWriter {
     });
   }
 
+  /** Bytes queued or in flight. */
+  get pending(): number {
+    return this.pendingBytes;
+  }
+
   write(buf: Buffer): Promise<void> {
     if (this.closed) {
       return Promise.reject(new Error("write after close"));
     }
+    this.pendingBytes += buf.length;
     const result = this.tail.then(() => this.send(buf));
+    const done = () => {
+      this.pendingBytes -= buf.length;
+    };
+    result.then(done, done);
     this.tail = result.catch(() => undefined);
     return result;
   }

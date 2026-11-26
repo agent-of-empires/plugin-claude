@@ -14,6 +14,20 @@ import { FrameWriter } from "./writer.js";
 
 const SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
 const DEFAULT_KILL_GRACE_MS = 5000;
+const HIGH_WATER_BYTES = 1024 * 1024;
+
+/** Pauses a source while its sink holds too many queued bytes. */
+function applyBackpressure(source: Readable, sink: FrameWriter, alive: () => boolean): void {
+  if (sink.pending <= HIGH_WATER_BYTES || source.isPaused()) {
+    return;
+  }
+  source.pause();
+  void sink.flush().then(() => {
+    if (alive()) {
+      source.resume();
+    }
+  });
+}
 
 function parse(line: Buffer): Record<string, unknown> | null {
   try {
@@ -148,8 +162,9 @@ export class Proxy {
       };
 
       const toChild = (buf: Buffer) => {
-        childWriter.write(buf).catch((err: Error) => {
-          if (!childExited) {
+        childWriter.write(buf).catch((err: NodeJS.ErrnoException) => {
+          // EPIPE: the adapter closed its stdin or died; its exit is handled on close.
+          if (!childExited && err.code !== "EPIPE") {
             this.fail(err);
           }
         });
@@ -161,6 +176,7 @@ export class Proxy {
           this.trackInitialize(line);
           toChild(line);
         }
+        applyBackpressure(this.input, childWriter, () => !settled);
       };
       const onClientEnd = () => {
         const rest = clientSplitter.end();
@@ -177,6 +193,7 @@ export class Proxy {
         for (const line of agentSplitter.push(chunk)) {
           this.agentLine(line);
         }
+        applyBackpressure(child.stdout, outWriter, () => !settled);
       });
       child.stdout.on("end", () => {
         const rest = agentSplitter.end();
