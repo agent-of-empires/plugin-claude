@@ -164,5 +164,27 @@ describe("backpressure", () => {
       held.splice(0).forEach((cb) => cb());
       expect(await done).toBe(3);
     }, 10000);
+
+    it("spends one grace period on shutdown, not two", async () => {
+      const input = new PassThrough();
+      let firstWrite = 0;
+      const proxy = createProxy({
+        pluginId: "p",
+        command: process.execPath,
+        args: [ADAPTER, "eof"],
+        killGraceMs: 500,
+        input,
+        output: new Writable({
+          write() {
+            firstWrite ||= Date.now();
+          },
+        }),
+      });
+      const done = proxy.run();
+      input.end();
+      await done;
+      // The adapter exits right after its only line; two grace periods would take 1000 ms.
+      expect(Date.now() - firstWrite).toBeLessThan(800);
+    }, 10000);
   });
 });

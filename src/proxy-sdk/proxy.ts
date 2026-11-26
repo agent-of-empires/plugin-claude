@@ -134,6 +134,12 @@ export class Proxy {
       // The trace closes after both writers drain, since their queued buffers still
       // write to it. An undrainable output is given killGraceMs, then dropped.
       const graceMs = this.opts.killGraceMs ?? DEFAULT_KILL_GRACE_MS;
+      // One deadline for the whole shutdown, started by whichever step comes first.
+      let deadline = 0;
+      const remaining = () => {
+        deadline ||= Date.now() + graceMs;
+        return Math.max(0, deadline - Date.now());
+      };
       const cleanup = async () => {
         try {
           for (const [sig, handler] of signalHandlers) {
@@ -147,7 +153,7 @@ export class Proxy {
           this.input.pause();
         } finally {
           try {
-            await bounded(Promise.allSettled([outWriter.flush(), childWriter.flush()]), graceMs);
+            await bounded(Promise.allSettled([outWriter.flush(), childWriter.flush()]), remaining());
           } finally {
             // Whatever is still queued is dropped; it must not touch the streams or the trace.
             outWriter.abandon();
@@ -235,7 +241,7 @@ export class Proxy {
         }
         this.leases.dispose();
         this.closing = true;
-        bounded(outWriter.close(), graceMs)
+        bounded(outWriter.close(), remaining())
           .then(() => {
             if (!settled) {
               void finish({ code: code ?? 128 + (signal ? (constants.signals[signal] ?? 0) : 0) });
