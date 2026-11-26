@@ -1,0 +1,10 @@
+[package]
+name = "plugin-claude-manifest-test"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+# v1.26.0, the first stable release that accepts API_VERSION = 25.
+aoe-plugin-api = { git = "https://github.com/agent-of-empires/agent-of-empires.git", rev = "3ff3a297583df1ec7b44ff73dacfbef71bb05076" }
+toml = "1.1"
