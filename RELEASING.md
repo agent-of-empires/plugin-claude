@@ -4,9 +4,10 @@ Releases use release-please. No PAT and no secret: `GITHUB_TOKEN` does everythin
 
 ## One-time prerequisite
 
-Repo owner: Settings, Actions, General, Workflow permissions. Select
-"Read and write permissions" and tick "Allow GitHub Actions to create and approve
-pull requests". Without both, release-please cannot open its release PR.
+Repo owner: Settings, Actions, General, Workflow permissions. Tick "Allow GitHub
+Actions to create and approve pull requests"; without it release-please cannot
+open its release PR. The workflow grants its own `contents` and `pull-requests`
+write, but "Read and write permissions" is also recommended (plugin-omp has both).
 
 ## Flow
 
