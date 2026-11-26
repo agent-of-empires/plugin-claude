@@ -13,11 +13,15 @@ interface Held {
 
 export class LeaseManager {
   private readonly held = new Map<string, Held>();
+  private closed = false;
 
   constructor(private readonly emit: (emission: Emission) => void) {}
 
   /** Acquires a lease and keeps it renewed until released. Returns its id. */
   acquire(opts: { sessionId: string; kind: LeaseKind; ttlMs: number }): string {
+    if (this.closed) {
+      throw new Error("lease manager is closed");
+    }
     validateTtl(opts.ttlMs);
     const id = randomUUID();
     const lease: Held = { sessionId: opts.sessionId, kind: opts.kind, ttlMs: opts.ttlMs, timer: null };
@@ -46,8 +50,9 @@ export class LeaseManager {
     this.send(lease, { id, kind: lease.kind, op: "release" });
   }
 
-  /** Best-effort release of every lease. Never throws. */
+  /** Best-effort release of every lease, then refuses new ones. Never throws. */
   dispose(): void {
+    this.closed = true;
     for (const id of [...this.held.keys()]) {
       try {
         this.release(id);

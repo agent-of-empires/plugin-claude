@@ -2,7 +2,8 @@
 // stdin/stdout) and a spawned adapter, byte for byte, except for the proxy hello
 // on the initialize result and the frames interpreters and leases emit.
 
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcessByStdio } from "node:child_process";
+import type { Readable, Writable } from "node:stream";
 import { constants } from "node:os";
 import { KeyGenerator, buildFrame, idKey, injectHello, isAnchored, isObject } from "./envelope.js";
 import { LeaseManager } from "./leases.js";
@@ -63,12 +64,20 @@ export class Proxy {
         reject(err);
         return;
       }
-      const child = spawn(this.opts.command, this.opts.args ?? [], {
-        stdio: ["pipe", "pipe", "inherit"],
-        env: this.opts.env,
-        cwd: this.opts.cwd,
-        shell: false,
-      });
+      let child: ChildProcessByStdio<Writable, Readable, null>;
+      try {
+        child = spawn(this.opts.command, this.opts.args ?? [], {
+          stdio: ["pipe", "pipe", "inherit"],
+          env: this.opts.env,
+          cwd: this.opts.cwd,
+          shell: false,
+        });
+      } catch (err) {
+        trace?.close();
+        this.leases.dispose();
+        reject(err);
+        return;
+      }
       const outWriter = new FrameWriter(this.output, trace ? (buf) => trace.agent(buf) : undefined);
       const childWriter = new FrameWriter(child.stdin, trace ? (buf) => trace.client(buf) : undefined);
       this.outWriter = outWriter;
@@ -90,27 +99,52 @@ export class Proxy {
         return [sig, handler] as const;
       });
 
-      const cleanup = () => {
-        for (const [sig, handler] of signalHandlers) {
-          process.off(sig, handler);
+      // The trace closes only after both writers have drained, since their queued
+      // buffers still write to it.
+      const cleanup = async () => {
+        try {
+          for (const [sig, handler] of signalHandlers) {
+            process.off(sig, handler);
+          }
+          if (killTimer) {
+            clearTimeout(killTimer);
+          }
+          this.input.off("data", onClientData);
+          this.input.off("end", onClientEnd);
+          this.input.pause();
+        } finally {
+          try {
+            await Promise.allSettled([outWriter.flush(), childWriter.flush()]);
+          } finally {
+            trace?.close();
+          }
         }
-        if (killTimer) {
-          clearTimeout(killTimer);
+      };
+      // The single end path: leases are disposed and run() always settles.
+      const finish = async (outcome: { code: number } | { err: Error }) => {
+        settled = true;
+        this.leases.dispose();
+        let result = outcome;
+        try {
+          await cleanup();
+        } catch (err) {
+          if ("code" in result) {
+            result = { err: err instanceof Error ? err : new Error(String(err)) };
+          }
         }
-        this.input.off("data", onClientData);
-        this.input.off("end", onClientEnd);
-        this.input.pause();
-        trace?.close();
+        if ("err" in result) {
+          reject(result.err);
+        } else {
+          resolve(result.code);
+        }
       };
       this.fail = (err) => {
         if (settled) {
           return;
         }
-        settled = true;
         this.failure = err;
         child.kill("SIGKILL");
-        cleanup();
-        reject(err);
+        void finish({ err });
       };
 
       const toChild = (buf: Buffer) => {
@@ -163,12 +197,9 @@ export class Proxy {
         outWriter
           .close()
           .then(() => {
-            if (settled) {
-              return;
+            if (!settled) {
+              void finish({ code: code ?? 128 + (signal ? (constants.signals[signal] ?? 0) : 0) });
             }
-            settled = true;
-            cleanup();
-            resolve(code ?? 128 + (signal ? (constants.signals[signal] ?? 0) : 0));
           })
           .catch((err: Error) => this.fail(err));
       });
@@ -186,9 +217,6 @@ export class Proxy {
   }
 
   private trackInitialize(line: Buffer): void {
-    if (!line.includes("initialize")) {
-      return;
-    }
     const value = parse(line);
     const key = value && value.method === "initialize" ? idKey(value.id) : null;
     if (key) {
