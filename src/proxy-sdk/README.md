@@ -17,8 +17,14 @@ const proxy = createProxy({
   ],
 });
 // run() starts the adapter and sets up the output writer synchronously, so emit
-// and lease calls are valid right after it. A Proxy is single-use.
+// and lease calls are valid right after it. A Proxy is single-use. If run() fails
+// at startup (for example a bad trace path), emit and lease calls throw "proxy is
+// not running", so attach the catch before using them.
 const done = proxy.run();
+done.catch((err) => {
+  console.error(err);
+  process.exitCode = 1;
+});
 const id = proxy.leases.acquire({ sessionId: "s1", kind: "busy", ttlMs: 60_000 }); // renewed at ttl/2
 proxy.leases.release(id);
 process.exitCode = await done; // the adapter's exit status, after output is flushed
@@ -26,7 +32,7 @@ process.exitCode = await done; // the adapter's exit status, after output is flu
 
 - The SDK adds `v`, `key` (`<process-random>:<counter>`) and `after_adapter_sequence` (the adapter `session/update` count so far). Emissions must not set `key` or `after_adapter_sequence`.
 - Adapter frames are counted only if they are `session/update` without `after_adapter_sequence`. Proxy-emitted frames never take a number.
-- `proxy.emit(emission)` may be called from any async source. Relayed traffic is flow-controlled: a source is paused while more than 1 MiB is queued for its sink. Interpreter, `emit` and lease frames are not throttled, so their volume is the caller's to bound. Writes go through one FIFO queue of whole lines.
+- `proxy.emit(emission)` and the lease calls are valid only once `run()` has started successfully; before that, or if `run()` rejected at startup, they throw "proxy is not running". After the run ends, emits are ignored and `leases.acquire` throws. `emit` may be called from any async source. Relayed traffic is flow-controlled: a source is paused while more than 1 MiB is queued for its sink. Interpreter, `emit` and lease frames are not throttled, so their volume is the caller's to bound. Writes go through one FIFO queue of whole lines.
 - Lease frames carry an empty `agent_message_chunk` marked `ephemeral`, so core applies the lease and drops the frame.
 - `SIGINT`, `SIGTERM` and `SIGHUP` are forwarded to the adapter once, then SIGKILL after `killGraceMs` (default 5000). Client EOF ends the adapter's stdin.
 - A trailing line without a delimiter is forwarded untouched and nothing is emitted after it.
