@@ -61,6 +61,7 @@ export class Proxy {
   private adapterCount = 0;
   private sealed = false;
   private started = false;
+  private closing = false;
   private failure: Error | null = null;
   private outWriter: FrameWriter | null = null;
   private fail: (err: Error) => void = () => undefined;
@@ -158,6 +159,7 @@ export class Proxy {
       // The single end path: leases are disposed and run() always settles.
       const finish = async (outcome: { code: number } | { err: Error }) => {
         settled = true;
+        this.closing = true;
         this.leases.dispose();
         let result = outcome;
         try {
@@ -232,6 +234,7 @@ export class Proxy {
           return;
         }
         this.leases.dispose();
+        this.closing = true;
         bounded(outWriter.close(), graceMs)
           .then(() => {
             if (!settled) {
@@ -247,7 +250,7 @@ export class Proxy {
     if (!this.outWriter) {
       throw new Error("proxy is not running");
     }
-    if (this.sealed || this.failure) {
+    if (this.sealed || this.failure || this.closing) {
       return;
     }
     this.outWriter.write(buf).catch((err: Error) => this.fail(err));

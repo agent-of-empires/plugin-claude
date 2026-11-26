@@ -139,5 +139,30 @@ describe("backpressure", () => {
       await new Promise((r) => setTimeout(r, 100));
       expect(chunks).toHaveLength(1);
     }, 10000);
+
+    it("ignores an emit during the drain window and still resolves with the exit code", async () => {
+      const input = new PassThrough();
+      const held: (() => void)[] = [];
+      const proxy = createProxy({
+        pluginId: "p",
+        command: process.execPath,
+        args: [ADAPTER, "eof"],
+        killGraceMs: 3000,
+        input,
+        output: new Writable({
+          write(_chunk: Buffer, _enc, cb) {
+            held.push(() => cb());
+          },
+        }),
+      });
+      const done = proxy.run();
+      input.end();
+      await until(() => held.length > 0);
+      // The adapter has exited by now; the close drain waits on the held write.
+      await new Promise((r) => setTimeout(r, 400));
+      proxy.emit({ sessionId: "s", update: { sessionUpdate: "agent_message_chunk" }, aoe: { ephemeral: true } });
+      held.splice(0).forEach((cb) => cb());
+      expect(await done).toBe(3);
+    }, 10000);
   });
 });
