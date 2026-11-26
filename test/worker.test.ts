@@ -8,7 +8,7 @@ describe("worker", () => {
   });
 
   it("does not respond to a notification", () => {
-    const response = processLine(JSON.stringify({ jsonrpc: "2.0", method: "claude.status" }));
+    const response = processLine(JSON.stringify({ jsonrpc: "2.0", method: "claude.ping" }));
     expect(response).toBeNull();
   });
 

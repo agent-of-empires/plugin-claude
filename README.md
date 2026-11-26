@@ -41,7 +41,7 @@ tests/manifest/        Rust crate that validates the manifest against a pinned c
 ```bash
 npm ci          # install deps
 npm run lint    # eslint
-npm run build   # compile TypeScript to dist/
+npm run build   # compile TypeScript to .aoe-build/dist/
 npm test        # vitest
 ```
 
@@ -51,7 +51,7 @@ Validate the manifest against the pinned core release:
 cargo test --locked --manifest-path tests/manifest/Cargo.toml
 ```
 
-Build output goes to `.aoe-build/` only.
+The worker build output goes to `.aoe-build/` only.
 
 See the [plugin authoring guide](https://agent-of-empires.com/docs/development/writing-plugins/)
 and the [plugin API reference](https://agent-of-empires.com/docs/api/plugin-api/).
