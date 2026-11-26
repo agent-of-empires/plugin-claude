@@ -16,9 +16,12 @@ const proxy = createProxy({
     ],
   ],
 });
+// run() starts the adapter and sets up the output writer synchronously, so emit
+// and lease calls are valid right after it. A Proxy is single-use.
+const done = proxy.run();
 const id = proxy.leases.acquire({ sessionId: "s1", kind: "busy", ttlMs: 60_000 }); // renewed at ttl/2
 proxy.leases.release(id);
-process.exitCode = await proxy.run(); // the adapter's exit status, after output is flushed
+process.exitCode = await done; // the adapter's exit status, after output is flushed
 ```
 
 - The SDK adds `v`, `key` (`<process-random>:<counter>`) and `after_adapter_sequence` (the adapter `session/update` count so far). Emissions must not set `key` or `after_adapter_sequence`.
