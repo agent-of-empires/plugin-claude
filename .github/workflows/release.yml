@@ -49,11 +49,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" >/dev/null 2>&1; then
+          # Only a confirmed 404 means the tag is missing; any other failure
+          # (rate limit, outage) must not fall through to releasing this commit.
+          if OUT="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" 2>&1)"; then
             echo "ref=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
-          else
+          elif [[ "$OUT" == *"HTTP 404"* ]]; then
             echo "ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
             echo "::notice::${RELEASE_TAG} does not exist yet; releasing ${GITHUB_SHA} and tagging it there."
+          else
+            echo "::error::Tag lookup for ${RELEASE_TAG} failed: ${OUT}"
+            exit 1
           fi
 
       - uses: actions/checkout@v4
