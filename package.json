@@ -10,7 +10,9 @@
   "scripts": {
     "build": "tsc",
     "lint": "eslint src test",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "test:parity": "cargo test --locked --manifest-path tests/manifest/Cargo.toml && npm run test:e2e"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
