@@ -33,9 +33,13 @@ mod tests {
     #[test]
     fn cargo_rev_matches_pin() {
         let rev = pin_value("rev");
-        assert!(
-            CARGO_TOML.contains(&format!("rev = \"{rev}\"")),
-            "Cargo.toml aoe-plugin-api rev must equal the rev in tests/aoe-pin.toml ({rev})"
+        let cargo: toml::Table = CARGO_TOML.parse().expect("Cargo.toml must parse");
+        let cargo_rev = cargo["dependencies"]["aoe-plugin-api"]["rev"]
+            .as_str()
+            .expect("Cargo.toml aoe-plugin-api needs a string `rev`");
+        assert_eq!(
+            cargo_rev, rev,
+            "Cargo.toml aoe-plugin-api rev must equal the rev in tests/aoe-pin.toml"
         );
     }
 
