@@ -1,9 +1,10 @@
 // Install smoke: the pinned aoe core accepts a `--dev` install of this checkout.
 //
-// Ran green on macOS arm64 against aoe 1.26.0. The macOS daemon-startup failure
-// seen under a throwaway HOME did not reproduce here, but it may be flaky; the
-// CI Linux job is the first run on that platform. The plugin is installed from
-// a staged copy because the host rejects symlinks (node_modules/.bin).
+// Ran green on macOS arm64 against aoe 1.26.0. The binary must be named `aoe`:
+// the daemon identity check rejects the release asset name (see
+// agent-of-empires/agent-of-empires#6113), so ensureAoe() renames it. The HOME
+// must also be a short path (socket path limit). The plugin is installed from a
+// staged copy because the host rejects symlinks (node_modules/.bin).
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
