@@ -145,7 +145,7 @@ export class Proxy {
       let epipeTimer: ReturnType<typeof setTimeout> | null = null;
       // Resolves true when queued output had to be dropped.
       const cleanup = async (): Promise<boolean> => {
-        let dropped = false;
+        let dropped: boolean;
         try {
           for (const [sig, handler] of signalHandlers) {
             process.off(sig, handler);
