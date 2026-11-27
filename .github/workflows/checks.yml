@@ -39,3 +39,16 @@ jobs:
       - run: npm run build
       - run: npm test
 
+
+  parity:
+    name: Parity smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - run: npm run test:e2e
