@@ -1,24 +1,12 @@
 // Agent of Empires worker: JSON-RPC 2.0 over newline-delimited JSON on stdio.
 //
-// The host spawns this process, sends one JSON-RPC request per line on stdin,
-// and reads one response per line on stdout. The worker exits cleanly on EOF.
+// The host spawns this process and sends one JSON-RPC request per line on stdin.
+// The worker is a declared no-op: the manifest needs a runtime worker, but no
+// method is served yet, so every request gets -32601. It exits cleanly on EOF.
 
 import * as readline from "node:readline";
 import { fileURLToPath } from "node:url";
-import { MethodNotFoundError, RpcResponse, errorResponse, resultResponse } from "./rpc.js";
-
-const RUNTIME = "node";
-
-export function handle(method: string, _params: Record<string, unknown>): Record<string, unknown> {
-  // The host maps a command id to a method; dispatch on the trailing segment so
-  // the worker is robust to the host's exact method prefix. A real handler reads
-  // `_params` for the request arguments.
-  const command = method.split(".").pop();
-  if (command === "status") {
-    return { ok: true, runtime: RUNTIME, message: "Claude worker is running" };
-  }
-  throw new MethodNotFoundError(method);
-}
+import { MethodNotFoundError, RpcResponse, errorResponse } from "./rpc.js";
 
 export function processLine(line: string): RpcResponse | null {
   let request: unknown;
@@ -35,16 +23,7 @@ export function processLine(line: string): RpcResponse | null {
   if (id === undefined || id === null) {
     return null; // a notification: no response
   }
-  try {
-    const params = message.params;
-    const result = handle(
-      String(message.method ?? ""),
-      params !== null && typeof params === "object" && !Array.isArray(params) ? (params as Record<string, unknown>) : {},
-    );
-    return resultResponse(id, result);
-  } catch (err) {
-    return errorResponse(id, err);
-  }
+  return errorResponse(id, new MethodNotFoundError(String(message.method ?? "")));
 }
 
 export function main(): void {
