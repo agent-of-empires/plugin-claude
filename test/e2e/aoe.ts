@@ -26,13 +26,14 @@ async function download(url: string): Promise<Buffer> {
   return Buffer.from(await response.arrayBuffer());
 }
 
-/** Download, verify and extract the pinned aoe release. Returns the binary path. */
+let downloadDir = "";
+
+/** Download the pinned aoe release into a private per-run dir, check it against the published .sha256 and extract it. Returns the binary path. */
 export async function ensureAoe(): Promise<string> {
   const version = pinnedVersion();
   const name = assetName();
-  const cacheDir = path.join(os.tmpdir(), "aoe-parity-cache", version, name);
-  const bin = path.join(cacheDir, "aoe");
-  if (fs.existsSync(bin)) return bin;
+  downloadDir = fs.mkdtempSync(path.join(os.tmpdir(), "aoe-dl-"));
+  const bin = path.join(downloadDir, "aoe");
 
   const base = `https://github.com/agent-of-empires/agent-of-empires/releases/download/v${version}/${name}.tar.gz`;
   const [tarball, sumFile] = await Promise.all([download(base), download(`${base}.sha256`)]);
@@ -40,15 +41,20 @@ export async function ensureAoe(): Promise<string> {
   const actual = createHash("sha256").update(tarball).digest("hex");
   if (actual !== expected) throw new Error(`sha256 mismatch for ${name}: ${actual} != ${expected}`);
 
-  fs.mkdirSync(cacheDir, { recursive: true });
-  const archive = path.join(cacheDir, `${name}.tar.gz`);
+  const archive = path.join(downloadDir, `${name}.tar.gz`);
   fs.writeFileSync(archive, tarball);
-  execFileSync("tar", ["-xzf", archive, "-C", cacheDir]);
+  execFileSync("tar", ["-xzf", archive, "-C", downloadDir]);
   // The tarball holds a top-level file named like the asset, not `aoe`.
-  const extracted = path.join(cacheDir, name);
+  const extracted = path.join(downloadDir, name);
   fs.renameSync(extracted, bin);
   fs.chmodSync(bin, 0o755);
   return bin;
+}
+
+/** Remove the per-run download dir made by ensureAoe(). */
+export function cleanupAoe(): void {
+  if (downloadDir) fs.rmSync(downloadDir, { recursive: true, force: true });
+  downloadDir = "";
 }
 
 /** Short path: the daemon's Unix socket path is length limited (os.tmpdir() is too long on macOS). */

@@ -8,7 +8,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { ensureAoe, makeThrowawayHome, stageSource } from "./aoe";
+import { cleanupAoe, ensureAoe, makeThrowawayHome, stageSource } from "./aoe";
 
 describe("aoe plugin install --dev", () => {
   let aoe = "";
@@ -29,6 +29,7 @@ describe("aoe plugin install --dev", () => {
   });
 
   afterAll(() => {
+    cleanupAoe();
     if (aoe && home) {
       // Stop the daemon the install may have started, then drop the HOME.
       run(["serve", "--stop"]);
