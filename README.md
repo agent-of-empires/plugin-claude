@@ -61,9 +61,19 @@ core release):
 npm run test:parity
 ```
 
-The core pin lives in `tests/aoe-pin.toml` (`version` and `rev`). To bump it, edit
-the `rev` in `tests/manifest/Cargo.toml` and `tests/aoe-pin.toml` together; the
-crate test fails if they differ. Case list: `tests/parity/cases.toml`.
+The smoke downloads the release tarball into a private temporary directory and
+compares it against the `.sha256` file published on the same release URL. That
+detects a corrupt download but not a replaced asset. Pinning a sha256 per asset
+is deferred.
+
+The core pin lives in `tests/aoe-pin.toml` (`version` and `rev`). To bump it:
+
+1. Set `version` and `rev` in `tests/aoe-pin.toml`.
+2. Set the same `rev` in `tests/manifest/Cargo.toml`; the crate test fails if the two differ.
+3. Refresh the lockfile: `cargo update -p aoe-plugin-api --manifest-path tests/manifest/Cargo.toml`.
+4. Run `npm run test:parity`.
+
+Case list: `tests/parity/cases.toml`.
 
 The worker build output goes to `.aoe-build/` only.
 
