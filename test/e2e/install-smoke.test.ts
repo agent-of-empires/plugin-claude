@@ -29,12 +29,12 @@ describe("aoe plugin install --dev", () => {
   });
 
   afterAll(() => {
-    cleanupAoe();
     if (aoe && home) {
-      // Stop the daemon the install may have started, then drop the HOME.
+      // Stop the daemon the install may have started (needs the binary), then drop the HOME.
       run(["serve", "--stop"]);
       fs.rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
     }
+    cleanupAoe();
   });
 
   it("installs this checkout and lists it", () => {
