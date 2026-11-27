@@ -1,0 +1,254 @@
+# Terminal parity case list (issue #5). One row per case from the inventory.
+# Owners are inferred from inventory sections and may be re-assigned.
+# status: pending (not implemented yet) or active (asserted by the suite).
+# owner: 2 launch/hooks/pane detection, 3 capture/session/resume, 4 sandbox.
+
+[[case]]
+id = "T2"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T3"
+owner = 3
+status = "pending"
+
+[[case]]
+id = "T4"
+owner = 3
+status = "pending"
+
+[[case]]
+id = "T5"
+owner = 3
+status = "pending"
+
+[[case]]
+id = "T6"
+owner = 3
+status = "pending"
+
+[[case]]
+id = "T7"
+owner = 3
+status = "pending"
+
+[[case]]
+id = "T8"
+owner = 3
+status = "pending"
+
+[[case]]
+id = "T9"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T10"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T11"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T12"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T13"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T14"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T15"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T16"
+owner = 3
+status = "pending"
+
+[[case]]
+id = "T17"
+owner = 3
+status = "pending"
+
+[[case]]
+id = "T18"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T21"
+owner = 3
+status = "pending"
+
+[[case]]
+id = "T22"
+owner = 3
+status = "pending"
+
+[[case]]
+id = "T23"
+owner = 3
+status = "pending"
+
+[[case]]
+id = "T24"
+owner = 3
+status = "pending"
+
+[[case]]
+id = "T25"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T26"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T27"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T28"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T29"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T30"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T31"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T32"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T33"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T34"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T35"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T36"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T37"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T38"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T39"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T40"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T41"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T42"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T43"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T44"
+owner = 2
+status = "pending"
+
+[[case]]
+id = "T45"
+owner = 4
+status = "pending"
+
+[[case]]
+id = "T46"
+owner = 4
+status = "pending"
+
+[[case]]
+id = "T47"
+owner = 4
+status = "pending"
+
+[[case]]
+id = "T48"
+owner = 4
+status = "pending"
+
+[[case]]
+id = "T49"
+owner = 4
+status = "pending"
+
+[[case]]
+id = "T50"
+owner = 4
+status = "pending"
+
+[[case]]
+id = "T51"
+owner = 4
+status = "pending"
+
+[[case]]
+id = "T52"
+owner = 4
+status = "pending"
+
+[[case]]
+id = "T53"
+owner = 4
+status = "pending"

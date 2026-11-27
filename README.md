@@ -33,6 +33,9 @@ src/
 scripts/
   write-aoe-wrapper.mjs generates the plugin-relative launcher
 test/                  worker-contract and framing tests
+test/e2e/              install smoke against the pinned aoe release (npm run test:e2e)
+tests/aoe-pin.toml     the single core pin (version + rev)
+tests/parity/          parity case list
 tests/manifest/        Rust crate that validates the manifest against a pinned core release
 ```
 
@@ -50,6 +53,27 @@ Validate the manifest against the pinned core release:
 ```bash
 cargo test --locked --manifest-path tests/manifest/Cargo.toml
 ```
+
+Run the parity checks (manifest crate, then an install smoke against the pinned
+core release):
+
+```bash
+npm run test:parity
+```
+
+The smoke downloads the release tarball into a private temporary directory and
+compares it against the `.sha256` file published on the same release URL. That
+detects a corrupt download but not a replaced asset. Pinning a sha256 per asset
+is deferred.
+
+The core pin lives in `tests/aoe-pin.toml` (`version` and `rev`). To bump it:
+
+1. Set `version` and `rev` in `tests/aoe-pin.toml`.
+2. Set the same `rev` in `tests/manifest/Cargo.toml`; the crate test fails if the two differ.
+3. Refresh the lockfile: `cargo update -p aoe-plugin-api --manifest-path tests/manifest/Cargo.toml`.
+4. Run `npm run test:parity`.
+
+Case list: `tests/parity/cases.toml`.
 
 The worker build output goes to `.aoe-build/` only.
 
